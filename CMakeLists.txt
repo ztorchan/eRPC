@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.16)
 project(eRPC)
 
 include(CMakeDependentOption)
@@ -46,13 +46,6 @@ include_directories(SYSTEM third_party/asio/include)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -Wall -Wextra -Werror -pedantic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wold-style-cast -Wno-unused-function")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations")
-
-include_directories(${CMAKE_SOURCE_DIR}/src)
-include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party)
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 
 # DPDK may be needed for different reasons (e.g., the transport is DPDK, or
 # if the transport is not DPDK but the application needs DPDK libraries)
@@ -214,13 +207,13 @@ set(MICA_SOURCES
   mica/src/mica/util/config.cc)
 
 # The app to compile. Only one app is compiled to reduce compile time.
-if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/autorun_app_file")
-  file(STRINGS "scripts/autorun_app_file" APP)
-else()
-  message(STATUS "No autorun_app_file found. No application will be compiled.")
-  return()
-endif()
-message(STATUS "Compiling app = " ${APP})
+# if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/autorun_app_file")
+#   file(STRINGS "scripts/autorun_app_file" APP)
+# else()
+#   message(STATUS "No autorun_app_file found. No application will be compiled.")
+#   return()
+# endif()
+# message(STATUS "Compiling app = " ${APP})
 
 # Add app-specific defines now, isolating them from the library and tests
 
@@ -234,40 +227,40 @@ else()
   set(PMEM "pmem")
 endif()
 
-if(APP STREQUAL "smr")
-  include_directories(mica/src)
-  add_subdirectory(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
-  include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft/include)
-  if (WIN32)
-    link_directories(${CMAKE_SOURCE_DIR}/build)
-    set(LIBRARIES ${LIBRARIES} raft.lib)
-  else()
-    link_directories(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
-    set(LIBRARIES ${LIBRARIES} raft ${PMEM})
-  endif()
-elseif(APP STREQUAL "masstree_analytics")
-  # CMake-based Masstree library from anujkaliaiitd/masstree-beta
-  link_directories(${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
-  include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
-  add_definitions(-include ${CMAKE_SOURCE_DIR}/third_party/masstree-beta/config.h)
-  set(APP_ADDITIONAL_SOURCES
-    apps/masstree_analytics/mt_index_api.cc
-    mica/src/mica/util/cityhash/city_mod.cc)
-  set(LIBRARIES ${LIBRARIES} masstree)
-  include_directories(mica/src)
-elseif(APP STREQUAL "mica_test")
-  include_directories(mica/src)
-  set(APP_ADDITIONAL_SOURCES ${MICA_SOURCES})
-elseif(APP STREQUAL "pmem_bw")
-  set(LIBRARIES ${LIBRARIES} ${PMEM})
-  message(STATUS "DPDK is needed for pmem_bw application")
-  add_definitions(-fpermissive)
-  set(DPDK_NEEDED "true")
-elseif(APP STREQUAL "persistent_kv")
-  set(LIBRARIES ${LIBRARIES} ${PMEM} cityhash)
-elseif(APP STREQUAL "log")
-  set(LIBRARIES ${LIBRARIES} ${PMEM})
-endif()
+# if(APP STREQUAL "smr")
+#   include_directories(mica/src)
+#   add_subdirectory(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
+#   include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft/include)
+#   if (WIN32)
+#     link_directories(${CMAKE_SOURCE_DIR}/build)
+#     set(LIBRARIES ${LIBRARIES} raft.lib)
+#   else()
+#     link_directories(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
+#     set(LIBRARIES ${LIBRARIES} raft ${PMEM})
+#   endif()
+# elseif(APP STREQUAL "masstree_analytics")
+#   # CMake-based Masstree library from anujkaliaiitd/masstree-beta
+#   link_directories(${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
+#   include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
+#   add_definitions(-include ${CMAKE_SOURCE_DIR}/third_party/masstree-beta/config.h)
+#   set(APP_ADDITIONAL_SOURCES
+#     apps/masstree_analytics/mt_index_api.cc
+#     mica/src/mica/util/cityhash/city_mod.cc)
+#   set(LIBRARIES ${LIBRARIES} masstree)
+#   include_directories(mica/src)
+# elseif(APP STREQUAL "mica_test")
+#   include_directories(mica/src)
+#   set(APP_ADDITIONAL_SOURCES ${MICA_SOURCES})
+# elseif(APP STREQUAL "pmem_bw")
+#   set(LIBRARIES ${LIBRARIES} ${PMEM})
+#   message(STATUS "DPDK is needed for pmem_bw application")
+#   add_definitions(-fpermissive)
+#   set(DPDK_NEEDED "true")
+# elseif(APP STREQUAL "persistent_kv")
+#   set(LIBRARIES ${LIBRARIES} ${PMEM} cityhash)
+# elseif(APP STREQUAL "log")
+#   set(LIBRARIES ${LIBRARIES} ${PMEM})
+# endif()
 
 if(DPDK_NEEDED STREQUAL "true")
   message(STATUS "DPDK needed to build eRPC")
@@ -376,6 +369,10 @@ endif()
 
 # Compile the library
 add_library(erpc ${SOURCES})
+target_include_directories(erpc PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src>" "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src>"
+                                       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+target_include_directories(erpc PUBLIC third_party/asio/include)
+add_library(erpc::erpc ALIAS erpc)
 
 if(DPDK_NEEDED STREQUAL "true")
   if (NOT WIN32)
@@ -391,18 +388,18 @@ endif()
 # Using link-time optimization sometimes requires building with sources instead
 # of liberpc. See the hello world example's Makefile for an example of
 # compiling with liberpc.
-add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES})
+# add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES})
 
-if(PERF)
-  target_compile_options(${APP} PRIVATE "-flto")
-endif()
-target_link_libraries(${APP} ${LIBRARIES})
+# if(PERF)
+#   target_compile_options(${APP} PRIVATE "-flto")
+# endif()
+# target_link_libraries(${APP} ${LIBRARIES})
 
 # Compile hello_world apps
-add_executable(hello_server hello_world/server.cc)
-target_link_libraries(hello_server erpc ${LIBRARIES})
-add_executable(hello_client hello_world/client.cc)
-target_link_libraries(hello_client erpc ${LIBRARIES})
+# add_executable(hello_server hello_world/server.cc)
+# target_link_libraries(hello_server erpc ${LIBRARIES})
+# add_executable(hello_client hello_world/client.cc)
+# target_link_libraries(hello_client erpc ${LIBRARIES})
 
 # Compile the tests
 if(TESTING)
